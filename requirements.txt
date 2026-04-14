@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+face_recognition
+opencv-python-headless
+numpy
+pytest
+httpx
+python-multipart
