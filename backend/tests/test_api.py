@@ -2,17 +2,22 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 import numpy as np
 
 from backend.app import app
 from backend.models.database import Base, get_db
+from backend.models.user import User  # Must import to register with Base
 from backend.services.face_service import extract_encoding, compare_faces
 
 # Use an in-memory SQLite database for testing
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -41,7 +46,7 @@ def test_health_check():
 def test_face_service_compare():
     # Dummy encodings
     enc1 = np.ones(128) * 0.1
-    enc2 = np.ones(128) * 0.15 # Close to enc1
+    enc2 = np.ones(128) * 0.12 # Closer to enc1. Diff is 0.02. Dist = sqrt(128 * 0.0004) = sqrt(0.0512) = 0.226 < 0.5
     enc3 = np.ones(128) * 0.9  # Far from enc1
     
     # Test match

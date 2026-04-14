@@ -8,3 +8,4 @@ numpy
 pytest
 httpx
 python-multipart
+setuptools<70.0.0
