@@ -294,3 +294,63 @@ input[type="text"]:focus {
 .toast.success {
     border-left-color: var(--success-color);
 }
+
+/* HUD Canvas for Face Boxes */
+.hud-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Roster Section */
+.roster-panel {
+    background: rgba(255,255,255,0.03);
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    margin-top: -1rem;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border-color);
+    padding: 10px;
+}
+
+.btn-ghost:hover {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+}
+
+.roster-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.roster-item {
+    background: rgba(0,0,0,0.3);
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.roster-badge {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success-color);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}

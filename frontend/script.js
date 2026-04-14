@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const usernameInput = document.getElementById('username');
     const resultDiv = document.getElementById('recognition-result');
     const scanOverlay = document.querySelector('.scan-overlay');
+    const hudCanvas = document.getElementById('hudCanvas');
+    const btnToggleRoster = document.getElementById('btn-toggle-roster');
+    const rosterList = document.getElementById('roster-list');
     const constaints = { video: { facingMode: "user" } };
 
     const API_BASE = "http://localhost:8000/api/face";
@@ -21,6 +24,64 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRecognize.disabled = true;
             btnRegister.disabled = true;
         }
+    }
+
+    // Voice Synthesis Helper
+    function speakName(name, isSmiling) {
+        if ('speechSynthesis' in window) {
+            const greeting = isSmiling ? `Access Granted. You look happy today, ${name}!` : `Access Granted. Welcome back, ${name}.`;
+            const msg = new SpeechSynthesisUtterance(greeting);
+            msg.rate = 1.0;
+            msg.pitch = 1.0;
+            window.speechSynthesis.speak(msg);
+        }
+    }
+
+    // HUD Drawing Logic
+    function drawHUD(box, name, confidence) {
+        hudCanvas.width = video.videoWidth;
+        hudCanvas.height = video.videoHeight;
+        const ctx = hudCanvas.getContext('2d');
+        ctx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+
+        if (!box) return;
+
+        // Box is [top, right, bottom, left]
+        // Since the image was captured flipped, we need to map it back without flipping the canvas context
+        // so that text isn't backwards.
+        const originalTop = box[0];
+        const originalRight = box[1];
+        const originalBottom = box[2];
+        const originalLeft = box[3];
+
+        const targetLeft = hudCanvas.width - originalRight;
+        const targetTop = originalTop;
+        const targetWidth = originalRight - originalLeft;
+        const targetHeight = originalBottom - originalTop;
+
+        // Draw animated glowing box
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#00f3ff';
+        ctx.shadowBlur = 15;
+        
+        // Draw corners
+        ctx.strokeRect(targetLeft, targetTop, targetWidth, targetHeight);
+
+        // Draw label background
+        ctx.fillStyle = 'rgba(0, 243, 255, 0.2)';
+        ctx.fillRect(targetLeft, targetTop - 30, targetWidth, 30);
+
+        // Draw text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Inter, sans-serif';
+        ctx.fillText(`${name} (${Math.round(confidence * 100)}%)`, targetLeft + 5, targetTop - 10);
+        
+        // Clear HUD after 4 seconds
+        setTimeout(() => {
+            ctx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+        }, 4000);
     }
 
     // Capture Image from Video Feed
@@ -76,13 +137,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 if (data.match_found) {
+                    const smileText = data.is_smiling ? " 😊" : "";
                     resultDiv.className = 'success';
-                    resultDiv.textContent = `Match: ${data.user.name} (Conf: ${Math.round(data.confidence * 100)}%)`;
+                    resultDiv.textContent = `Match: ${data.user.name}${smileText} (Conf: ${Math.round(data.confidence * 100)}%)`;
                     showToast(`Welcome back, ${data.user.name}!`, "success");
+                    speakName(data.user.name, data.is_smiling);
+                    drawHUD(data.box, data.user.name, data.confidence);
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.textContent = 'Unknown Face';
                     showToast("Face not recognized in database.", "error");
+                    if (data.box) {
+                        drawHUD(data.box, "Unknown Target", data.confidence);
+                        if ('speechSynthesis' in window) {
+                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Intruder detected. Access Denied."));
+                        }
+                    }
                 }
             } else {
                 handleApiError(data);
@@ -158,6 +228,38 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => toast.remove(), 300);
         }, 4000);
     }
+
+    // Roster logic
+    btnToggleRoster.addEventListener('click', async () => {
+        if (rosterList.style.display === 'none') {
+            try {
+                const res = await fetch(`${API_BASE}/users`);
+                const users = await res.json();
+                
+                rosterList.innerHTML = '';
+                if (users.length === 0) {
+                    rosterList.innerHTML = '<div class="roster-item">No users registered yet</div>';
+                } else {
+                    users.forEach(user => {
+                        const date = new Date(user.created_at).toLocaleDateString();
+                        rosterList.innerHTML += `
+                            <div class="roster-item">
+                                <span>${user.name}</span>
+                                <span class="roster-badge">Active</span>
+                            </div>
+                        `;
+                    });
+                }
+                rosterList.style.display = 'flex';
+                btnToggleRoster.textContent = 'Hide Registered Users';
+            } catch (e) {
+                showToast("Failed to fetch users", "error");
+            }
+        } else {
+            rosterList.style.display = 'none';
+            btnToggleRoster.textContent = 'View Registered Users';
+        }
+    });
 
     // Start
     initCamera();

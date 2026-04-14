@@ -5,7 +5,7 @@ from typing import List
 from backend.models.database import get_db
 from backend.models.schemas import RegisterResponse, RecognizeResponse, UserResponse
 from backend.services.user_service import create_user, get_all_users
-from backend.services.face_service import extract_encoding, compare_faces
+from backend.services.face_service import extract_encoding, extract_face_data, compare_faces
 from backend.utils.image_processing import process_base64_image, process_upload_file
 from backend.utils.error_handlers import ImageProcessError, AppException
 
@@ -61,8 +61,8 @@ async def recognize_face(
     else:
         image_rgb = process_base64_image(image_base64)
     
-    # Find the face encoding to query
-    encoding = extract_encoding(image_rgb, enforce_single_face=True)
+    # Find the face encoding and extra data to query
+    encoding, box, is_smiling = extract_face_data(image_rgb, enforce_single_face=True)
     
     # Fetch all known users
     all_users = get_all_users(db)
@@ -86,13 +86,17 @@ async def recognize_face(
             message="Face recognized.",
             match_found=True,
             user=matched_user,
-            confidence=confidence
+            confidence=confidence,
+            box=box,
+            is_smiling=is_smiling
         )
     else:
         return RecognizeResponse(
             message="Unknown face.",
             match_found=False,
-            confidence=confidence
+            confidence=confidence,
+            box=box,
+            is_smiling=is_smiling
         )
 
 @router.get("/users", response_model=List[UserResponse])

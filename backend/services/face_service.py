@@ -34,6 +34,44 @@ def extract_encoding(image_rgb: np.ndarray, enforce_single_face: bool = True) ->
     # This just returns the 128-d numpy array
     return encodings[0]
 
+def extract_face_data(image_rgb: np.ndarray, enforce_single_face: bool = True) -> Tuple[np.ndarray, list, bool]:
+    """
+    Extracts encoding, bounding box location, and smile heuristic.
+    """
+    face_locations = face_recognition.face_locations(image_rgb)
+    num_faces = len(face_locations)
+    
+    if num_faces == 0:
+        raise FaceNotFoundError()
+        
+    if num_faces > 1 and enforce_single_face:
+        raise MultipleFacesError()
+
+    location = face_locations[0] # (top, right, bottom, left)
+    encodings = face_recognition.face_encodings(image_rgb, known_face_locations=face_locations)[0]
+    
+    # Smile detection using landmarks
+    landmarks = face_recognition.face_landmarks(image_rgb, face_locations)
+    is_smiling = False
+    
+    if landmarks and len(landmarks) > 0:
+        face_marks = landmarks[0]
+        if 'top_lip' in face_marks and 'bottom_lip' in face_marks:
+            # corners of the mouth are usually the first and 7th points of the top_lip
+            left_corner = face_marks['top_lip'][0]
+            right_corner = face_marks['top_lip'][6]
+            
+            mouth_width = ((right_corner[0] - left_corner[0]) ** 2 + (right_corner[1] - left_corner[1]) ** 2) ** 0.5
+            
+            top, right, bottom, left = location
+            face_width = max(right - left, 1) # prevent div by zero
+            
+            # Simple heuristic: if mouth width is more than 40% of the bounding face box width, they might be smiling
+            ratio = mouth_width / face_width
+            is_smiling = ratio > 0.38
+            
+    return encodings, list(location), is_smiling
+
 def compare_faces(
     unknown_encoding: np.ndarray, 
     known_encodings: list[np.ndarray], 

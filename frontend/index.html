@@ -30,6 +30,8 @@
             <section class="camera-section">
                 <div class="video-container">
                     <video id="videoElement" autoplay playsinline></video>
+                    <!-- HUD overlay for drawing bounding boxes -->
+                    <canvas id="hudCanvas" class="hud-canvas"></canvas>
                     <!-- Overlay for scanning effect -->
                     <div class="scan-overlay"></div>
                 </div>
@@ -58,6 +60,14 @@
                         <span class="btn-text">Register Face</span>
                         <div class="loader" style="display: none;"></div>
                     </button>
+                </div>
+
+                <!-- Roster Panel -->
+                <div class="roster-panel">
+                    <button class="btn btn-ghost" id="btn-toggle-roster">View Registered Users</button>
+                    <div class="roster-list" id="roster-list" style="display: none;">
+                        <!-- Users will be populated here -->
+                    </div>
                 </div>
             </section>
         </main>

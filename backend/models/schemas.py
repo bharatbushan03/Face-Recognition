@@ -31,6 +31,8 @@ class RecognizeResponse(BaseModel):
     match_found: bool
     user: Optional[UserResponse] = None
     confidence: Optional[float] = None
+    box: Optional[List[int]] = None
+    is_smiling: Optional[bool] = None
 
 class Base64ImageRequest(BaseModel):
     image_base64: str
