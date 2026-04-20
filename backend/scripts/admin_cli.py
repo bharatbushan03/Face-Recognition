@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import logging
 
 from backend.services.admin_service import (
     add_student,
@@ -11,6 +12,22 @@ from backend.services.admin_service import (
     remove_student,
     update_student_images,
 )
+from backend.utils.logging_config import configure_logging
+
+
+configure_logging()
+logger = logging.getLogger(__name__)
+
+
+def _safe_int_input(prompt: str, default: int) -> int:
+    raw = input(prompt).strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"Invalid number '{raw}'. Using default {default}.")
+        return default
 
 
 def _print_students(dataset_dir: str) -> None:
@@ -94,10 +111,8 @@ def run_menu(dataset_dir: str, cache_file: str) -> None:
         elif choice == "3":
             name = input("Student name: ").strip()
             sid = input("Student ID (optional): ").strip() or None
-            count_raw = input("How many images to capture (default 5): ").strip()
-            count = int(count_raw) if count_raw else 5
-            camera_raw = input("Camera index (default 0): ").strip()
-            camera_index = int(camera_raw) if camera_raw else 0
+            count = _safe_int_input("How many images to capture (default 5): ", 5)
+            camera_index = _safe_int_input("Camera index (default 0): ", 0)
 
             result = add_student(
                 student_name=name,
@@ -130,10 +145,8 @@ def run_menu(dataset_dir: str, cache_file: str) -> None:
                     new_image_paths=image_paths,
                 )
             else:
-                count_raw = input("How many images to capture (default 3): ").strip()
-                count = int(count_raw) if count_raw else 3
-                camera_raw = input("Camera index (default 0): ").strip()
-                camera_index = int(camera_raw) if camera_raw else 0
+                count = _safe_int_input("How many images to capture (default 3): ", 3)
+                camera_index = _safe_int_input("Camera index (default 0): ", 0)
 
                 result = update_student_images(
                     student_ref=student_ref,
@@ -171,6 +184,7 @@ def run_menu(dataset_dir: str, cache_file: str) -> None:
 
         elif choice == "7":
             print("Goodbye.")
+            logger.info("Admin CLI exited by user")
             break
 
         else:

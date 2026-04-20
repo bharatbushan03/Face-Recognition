@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime, date
 from pathlib import Path
 import csv
+import logging
 import threading
+
+from backend.utils.logging_config import get_attendance_logger
 
 
 ATTENDANCE_HEADERS = [
@@ -19,6 +22,10 @@ ATTENDANCE_HEADERS = [
     "source",
     "recorded_at",
 ]
+
+
+logger = logging.getLogger(__name__)
+attendance_logger = get_attendance_logger()
 
 
 @dataclass(frozen=True)
@@ -70,6 +77,26 @@ class AttendanceManager:
         self._ensure_file()
         self._reload_marked_keys_for_active_date()
 
+    def _backup_invalid_csv(self, reason: str) -> None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = self.csv_path.with_name(
+            f"{self.csv_path.stem}_invalid_{timestamp}{self.csv_path.suffix}.bak"
+        )
+
+        try:
+            self.csv_path.replace(backup_path)
+            logger.error(
+                "Attendance CSV was invalid (%s). Backed up to %s",
+                reason,
+                backup_path,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to backup invalid attendance CSV (%s): %s",
+                reason,
+                exc,
+            )
+
     @staticmethod
     def _normalize_student_key(student_name: str, student_id: str | None = None) -> str:
         if student_id and str(student_id).strip():
@@ -83,7 +110,16 @@ class AttendanceManager:
 
     def _ensure_file(self) -> None:
         if self.csv_path.exists() and self.csv_path.stat().st_size > 0:
-            return
+            try:
+                with self.csv_path.open("r", newline="", encoding="utf-8") as handle:
+                    reader = csv.reader(handle)
+                    header = next(reader, [])
+                if header == ATTENDANCE_HEADERS:
+                    return
+                self._backup_invalid_csv("header mismatch")
+            except Exception as exc:
+                logger.exception("Failed to validate attendance CSV header: %s", exc)
+                self._backup_invalid_csv("unable to read CSV header")
 
         with self.csv_path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=ATTENDANCE_HEADERS)
@@ -96,21 +132,31 @@ class AttendanceManager:
         if not self.csv_path.exists() or self.csv_path.stat().st_size == 0:
             return
 
-        with self.csv_path.open("r", newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                if row.get("date") != target_date:
-                    continue
+        try:
+            with self.csv_path.open("r", newline="", encoding="utf-8") as handle:
+                reader = csv.DictReader(handle)
+                if reader.fieldnames != ATTENDANCE_HEADERS:
+                    logger.warning(
+                        "Attendance CSV header mismatch while reloading marks. "
+                        "Ignoring existing rows for safety."
+                    )
+                    return
 
-                student_key = row.get("student_key", "").strip()
-                if not student_key:
-                    continue
+                for row in reader:
+                    if row.get("date") != target_date:
+                        continue
 
-                if self.config.dedupe_scope == "session":
-                    if row.get("session_id") == self.session_id:
+                    student_key = row.get("student_key", "").strip()
+                    if not student_key:
+                        continue
+
+                    if self.config.dedupe_scope == "session":
+                        if row.get("session_id") == self.session_id:
+                            self._marked_keys.add(self._dedupe_key(student_key, target_date))
+                    else:
                         self._marked_keys.add(self._dedupe_key(student_key, target_date))
-                else:
-                    self._marked_keys.add(self._dedupe_key(student_key, target_date))
+        except Exception as exc:
+            logger.exception("Failed to reload attendance marks from CSV: %s", exc)
 
     def _refresh_day_if_needed(self, now: datetime) -> None:
         current = now.date()
@@ -165,24 +211,44 @@ class AttendanceManager:
                 recorded_at=recorded_at,
             )
 
-            with self.csv_path.open("a", newline="", encoding="utf-8") as handle:
-                writer = csv.DictWriter(handle, fieldnames=ATTENDANCE_HEADERS)
-                writer.writerow(
-                    {
-                        "student_key": record.student_key,
-                        "student_id": record.student_id,
-                        "student_name": record.student_name,
-                        "date": record.date,
-                        "time": record.time,
-                        "status": record.status,
-                        "session_id": record.session_id,
-                        "confidence": "" if record.confidence is None else f"{record.confidence:.4f}",
-                        "source": record.source,
-                        "recorded_at": record.recorded_at,
-                    }
+            try:
+                with self.csv_path.open("a", newline="", encoding="utf-8") as handle:
+                    writer = csv.DictWriter(handle, fieldnames=ATTENDANCE_HEADERS)
+                    writer.writerow(
+                        {
+                            "student_key": record.student_key,
+                            "student_id": record.student_id,
+                            "student_name": record.student_name,
+                            "date": record.date,
+                            "time": record.time,
+                            "status": record.status,
+                            "session_id": record.session_id,
+                            "confidence": "" if record.confidence is None else f"{record.confidence:.4f}",
+                            "source": record.source,
+                            "recorded_at": record.recorded_at,
+                        }
+                    )
+            except Exception as exc:
+                logger.exception(
+                    "Failed to persist attendance record for student %s: %s",
+                    clean_name,
+                    exc,
                 )
+                return False, None
 
             self._marked_keys.add(dedupe_key)
+            attendance_logger.info(
+                "attendance_marked student_key=%s student_id=%s student_name=%s "
+                "date=%s time=%s session_id=%s confidence=%s source=%s",
+                record.student_key,
+                record.student_id,
+                record.student_name,
+                record.date,
+                record.time,
+                record.session_id,
+                "" if record.confidence is None else f"{record.confidence:.4f}",
+                record.source,
+            )
             return True, record
 
     def is_marked_today(self, student_name: str, student_id: str | None = None) -> bool:

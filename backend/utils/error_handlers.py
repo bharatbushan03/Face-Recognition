@@ -22,7 +22,12 @@ class ImageProcessError(AppException):
         super().__init__(message=message, status_code=400)
 
 async def app_exception_handler(request: Request, exc: AppException):
-    logger.error(f"AppException: {exc.message}")
+    logger.warning(
+        "AppException on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.message,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -33,7 +38,13 @@ async def app_exception_handler(request: Request, exc: AppException):
     )
 
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled server error: {str(exc)}", exc_info=True)
+    logger.error(
+        "Unhandled server error on %s %s: %s",
+        request.method,
+        request.url.path,
+        str(exc),
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
         content={

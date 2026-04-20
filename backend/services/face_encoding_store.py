@@ -38,10 +38,10 @@ class KnownFaceStore:
 
     def __init__(self, names: list[str], encodings: np.ndarray):
         self._names = list(names)
-        self._encodings = np.asarray(encodings, dtype=np.float64)
+        self._encodings = np.asarray(encodings, dtype=np.float32)
 
         if len(self._names) == 0:
-            self._encodings = np.empty((0, 128), dtype=np.float64)
+            self._encodings = np.empty((0, 128), dtype=np.float32)
             return
 
         if self._encodings.ndim != 2 or self._encodings.shape[1] != 128:
@@ -63,7 +63,7 @@ class KnownFaceStore:
 
     @classmethod
     def empty(cls) -> "KnownFaceStore":
-        return cls(names=[], encodings=np.empty((0, 128), dtype=np.float64))
+        return cls(names=[], encodings=np.empty((0, 128), dtype=np.float32))
 
     @classmethod
     def load_npz(cls, npz_path: str | Path) -> "KnownFaceStore":
@@ -71,31 +71,48 @@ class KnownFaceStore:
         if not path.exists():
             raise FileNotFoundError(f"Encoding cache file not found: {path}")
 
-        with np.load(path, allow_pickle=False) as data:
-            encodings = data["encodings"]
-            names = data["names"].tolist()
+        try:
+            with np.load(path, allow_pickle=False) as data:
+                if "encodings" not in data or "names" not in data:
+                    raise ValueError("Missing required keys 'encodings' and/or 'names'")
+                encodings = data["encodings"]
+                names = data["names"].tolist()
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load encoding cache from {path}: {exc}") from exc
 
         names = [str(name) for name in names]
-        return cls(names=names, encodings=np.asarray(encodings, dtype=np.float64))
+        return cls(names=names, encodings=np.asarray(encodings, dtype=np.float32))
 
     def save_npz(self, npz_path: str | Path) -> None:
         path = Path(npz_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(path, encodings=self._encodings, names=np.array(self._names, dtype=str))
 
-    def match(
-        self,
-        query_encoding: np.ndarray,
-        tolerance: float = 0.48,
-        ambiguity_margin: float = 0.03,
-        top_k: int = 2,
-    ) -> MatchResult:
-        """
-        Match an unknown face encoding to the nearest known encoding.
+    @staticmethod
+    def _validate_query_array(query_encodings: np.ndarray) -> np.ndarray:
+        queries = np.asarray(query_encodings, dtype=np.float32)
+        if queries.ndim == 1:
+            queries = queries.reshape(1, -1)
+        if queries.ndim != 2 or queries.shape[1] != 128:
+            raise ValueError("Query encoding(s) must be shaped as (128,) or (N, 128)")
+        return queries
 
-        Ambiguous matches happen when top-2 distances are too close.
-        """
+    def _compute_distances(self, query_encodings: np.ndarray) -> np.ndarray:
         if self.size == 0:
+            return np.empty((query_encodings.shape[0], 0), dtype=np.float32)
+
+        # Vectorized L2 distance: shape (queries, known_faces).
+        deltas = self._encodings[np.newaxis, :, :] - query_encodings[:, np.newaxis, :]
+        return np.linalg.norm(deltas, axis=2)
+
+    def _build_match_result(
+        self,
+        distances: np.ndarray,
+        tolerance: float,
+        ambiguity_margin: float,
+        top_k: int,
+    ) -> MatchResult:
+        if distances.size == 0:
             return MatchResult(
                 name=None,
                 distance=1.0,
@@ -105,14 +122,6 @@ class KnownFaceStore:
                 top_candidates=[],
             )
 
-        try:
-            import face_recognition
-        except ImportError as exc:
-            raise ImportError(
-                "face_recognition is not installed. Run: python -m pip install face_recognition"
-            ) from exc
-
-        distances = face_recognition.face_distance(self._encodings, query_encoding)
         sorted_indices = np.argsort(distances)
 
         best_index = int(sorted_indices[0])
@@ -139,6 +148,51 @@ class KnownFaceStore:
             is_ambiguous=is_ambiguous,
             top_candidates=top_candidates,
         )
+
+    def match(
+        self,
+        query_encoding: np.ndarray,
+        tolerance: float = 0.48,
+        ambiguity_margin: float = 0.03,
+        top_k: int = 2,
+    ) -> MatchResult:
+        """
+        Match an unknown face encoding to the nearest known encoding.
+
+        Ambiguous matches happen when top-2 distances are too close.
+        """
+        queries = self._validate_query_array(np.asarray(query_encoding, dtype=np.float32))
+        distances = self._compute_distances(queries)[0]
+        return self._build_match_result(
+            distances=distances,
+            tolerance=tolerance,
+            ambiguity_margin=ambiguity_margin,
+            top_k=top_k,
+        )
+
+    def match_batch(
+        self,
+        query_encodings: list[np.ndarray] | np.ndarray,
+        tolerance: float = 0.48,
+        ambiguity_margin: float = 0.03,
+        top_k: int = 2,
+    ) -> list[MatchResult]:
+        """Batch match multiple query encodings for lower per-frame recognition latency."""
+        raw_queries = np.asarray(query_encodings, dtype=np.float32)
+        if raw_queries.size == 0:
+            return []
+
+        queries = self._validate_query_array(raw_queries)
+        distances_matrix = self._compute_distances(queries)
+        return [
+            self._build_match_result(
+                distances=distances_matrix[row_index],
+                tolerance=tolerance,
+                ambiguity_margin=ambiguity_margin,
+                top_k=top_k,
+            )
+            for row_index in range(distances_matrix.shape[0])
+        ]
 
 
 def _iter_images(dataset_dir: Path) -> Iterable[Path]:
@@ -232,7 +286,7 @@ def build_known_face_store(
                 continue
 
             names.append(student_name)
-            encodings.append(np.asarray(image_encodings[0], dtype=np.float64))
+            encodings.append(np.asarray(image_encodings[0], dtype=np.float32))
         except Exception as exc:
             skipped_errors += 1
             logger.exception("Failed processing %s: %s", image_path, exc)

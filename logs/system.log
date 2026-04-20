@@ -1,0 +1,110 @@
+2026-04-20 18:16:23,047 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:16:23,048 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:16:25,326 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:16:25,326 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:19:04,011 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:19:04,016 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:19:24,117 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:19:24,119 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:21:48,108 | ERROR | backend.services.admin_service | Failed to add student 'Charlie': All images were rejected. Add clear images with exactly one face.
+Traceback (most recent call last):
+  File "C:\Users\dell\Desktop\Face-Recognition\backend\services\admin_service.py", line 352, in add_student
+    raise RuntimeError("All images were rejected. Add clear images with exactly one face.")
+RuntimeError: All images were rejected. Add clear images with exactly one face.
+2026-04-20 18:21:48,125 | INFO | backend.services.admin_service | Removed student folder C:\Users\dell\AppData\Local\Temp\pytest-of-dell\pytest-10\test_add_then_remove_student_u0\students\S222__Daisy
+2026-04-20 18:21:48,151 | INFO | httpx | HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-04-20 18:21:48,183 | WARNING | backend.utils.error_handlers | AppException on POST /api/face/register: Missing image data. Provide an image file or base64 string.
+2026-04-20 18:21:48,185 | INFO | httpx | HTTP Request: POST http://testserver/api/face/register "HTTP/1.1 400 Bad Request"
+2026-04-20 18:21:48,210 | INFO | httpx | HTTP Request: GET http://testserver/api/face/users "HTTP/1.1 200 OK"
+2026-04-20 18:21:48,232 | INFO | httpx | HTTP Request: GET http://testserver/api/face/users "HTTP/1.1 401 Unauthorized"
+2026-04-20 18:21:48,249 | INFO | httpx | HTTP Request: GET http://testserver/api/face/users "HTTP/1.1 200 OK"
+2026-04-20 18:21:48,264 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-20 time=18:21:48 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-20 18:21:48,283 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-20 time=18:21:48 session_id=session_1 confidence= source=face_recognition
+2026-04-20 18:21:48,295 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=18:21:48 session_id=morning confidence= source=face_recognition
+2026-04-20 18:21:48,299 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=18:21:48 session_id=afternoon confidence= source=face_recognition
+2026-04-20 18:23:36,604 | WARNING | backend.ui.dashboard_runtime | Failed building known face store from dataset: face_recognition is not installed. Run: python -m pip install face_recognition
+2026-04-20 18:23:36,606 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:25:48,391 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:25:48,391 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:31:47,599 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:31:47,605 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 18:32:59,471 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:33:26,921 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:33:26,928 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:34:07,148 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:34:09,354 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:34:09,357 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:34:13,815 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 18:54:09,861 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 18:54:09,861 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 21:29:20,935 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 21:29:20,941 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:10:23,609 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:10:23,609 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:12:31,426 | INFO | backend.services.user_service | User created: id=1 name=Bharat
+2026-04-20 23:12:31,427 | INFO | backend.routes.face_routes | Registered new user: Bharat
+2026-04-20 23:14:58,144 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:14:58,144 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:15:05,633 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:15:05,633 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:18:11,745 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:18:11,747 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:18:57,023 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:18:57,024 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:21:46,852 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:21:46,854 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:39:47,868 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:39:47,870 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:39:55,630 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:39:55,630 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:40:49,031 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:40:49,032 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:41:30,361 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:41:30,361 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:41:44,340 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-20 time=23:41:44 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-20 23:41:44,372 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-20 time=23:41:44 session_id=session_1 confidence= source=face_recognition
+2026-04-20 23:41:44,393 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=23:41:44 session_id=morning confidence= source=face_recognition
+2026-04-20 23:41:44,398 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=23:41:44 session_id=afternoon confidence= source=face_recognition
+2026-04-20 23:42:20,988 | INFO | backend.app | Face Recognition API starting up
+2026-04-20 23:42:20,988 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-20 23:42:28,826 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-20 time=23:42:28 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-20 23:42:28,837 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-20 time=23:42:28 session_id=session_1 confidence= source=face_recognition
+2026-04-20 23:42:28,854 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=23:42:28 session_id=morning confidence= source=face_recognition
+2026-04-20 23:42:28,856 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-20 time=23:42:28 session_id=afternoon confidence= source=face_recognition
+2026-04-21 00:23:33,360 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:23:33,361 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:23:54,754 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:23:54,755 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:24:01,835 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:24:01,836 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:24:21,897 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:24:21,898 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:24:30,192 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:24:30,193 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:24:37,459 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:24:37,460 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:25:15,972 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:25:15,973 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:25:28,419 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:25:28,420 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:25:38,579 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:25:38,580 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:25:49,840 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-21 time=00:25:49 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-21 00:25:49,853 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-21 time=00:25:49 session_id=session_1 confidence= source=face_recognition
+2026-04-21 00:25:49,864 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:25:49 session_id=morning confidence= source=face_recognition
+2026-04-21 00:25:49,866 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:25:49 session_id=afternoon confidence= source=face_recognition
+2026-04-21 00:26:22,915 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:26:22,917 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:26:32,211 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-21 time=00:26:32 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-21 00:26:32,220 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-21 time=00:26:32 session_id=session_1 confidence= source=face_recognition
+2026-04-21 00:26:32,230 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:26:32 session_id=morning confidence= source=face_recognition
+2026-04-21 00:26:32,232 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:26:32 session_id=afternoon confidence= source=face_recognition
+2026-04-21 00:32:18,153 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:32:18,154 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:32:36,176 | INFO | backend.app | Face Recognition API starting up
+2026-04-21 00:32:36,177 | INFO | backend.app | CORS origins: ['http://localhost', 'http://127.0.0.1']
+2026-04-21 00:32:43,291 | WARNING | backend.ui.dashboard_runtime | RecognitionConfig does not accept detect_every_n_frames. Falling back to compatible args only.
+2026-04-21 00:32:43,307 | INFO | attendance | attendance_marked student_key=S001 student_id=S001 student_name=Alice date=2026-04-21 time=00:32:43 session_id=session_A confidence=0.9100 source=face_recognition
+2026-04-21 00:32:43,315 | INFO | attendance | attendance_marked student_key=S002 student_id=S002 student_name=Bob date=2026-04-21 time=00:32:43 session_id=session_1 confidence= source=face_recognition
+2026-04-21 00:32:43,323 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:32:43 session_id=morning confidence= source=face_recognition
+2026-04-21 00:32:43,325 | INFO | attendance | attendance_marked student_key=S003 student_id=S003 student_name=Carol date=2026-04-21 time=00:32:43 session_id=afternoon confidence= source=face_recognition

@@ -1,19 +1,56 @@
-import face_recognition
 import numpy as np
 import logging
 from typing import Tuple
+import cv2
 
 from backend.utils.error_handlers import FaceNotFoundError, MultipleFacesError, ImageProcessError
 
 logger = logging.getLogger(__name__)
 
-def extract_encoding(image_rgb: np.ndarray, enforce_single_face: bool = True) -> np.ndarray:
+
+def _get_face_recognition_module():
+    try:
+        import face_recognition
+    except ImportError as exc:
+        raise ImportError(
+            "face_recognition is not installed. Run: python -m pip install face_recognition"
+        ) from exc
+    return face_recognition
+
+
+def _enhance_if_low_light(image_rgb: np.ndarray, brightness_threshold: float = 70.0) -> np.ndarray:
+    """Apply CLAHE on luminance channel when the frame is too dark."""
+    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+    brightness = float(np.mean(gray))
+    if brightness >= brightness_threshold:
+        return image_rgb
+
+    lab = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced_l = clahe.apply(l_channel)
+    enhanced_lab = cv2.merge((enhanced_l, a_channel, b_channel))
+    return cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2RGB)
+
+def extract_encoding(
+    image_rgb: np.ndarray,
+    enforce_single_face: bool = True,
+    auto_enhance_low_light: bool = True,
+) -> np.ndarray:
     """
     Extract perfectly one face encoding from an image.
     Throws FaceNotFoundError if no face is found.
     Throws MultipleFacesError if >1 face is found and enforce_single_face=True.
     """
-    face_locations = face_recognition.face_locations(image_rgb)
+    face_recognition = _get_face_recognition_module()
+    image_for_detection = _enhance_if_low_light(image_rgb) if auto_enhance_low_light else image_rgb
+    face_locations = face_recognition.face_locations(image_for_detection)
+
+    if not face_locations and auto_enhance_low_light:
+        # Fallback to original frame in case enhancement over-corrected the image.
+        image_for_detection = image_rgb
+        face_locations = face_recognition.face_locations(image_for_detection)
+
     num_faces = len(face_locations)
     
     if num_faces == 0:
@@ -25,7 +62,7 @@ def extract_encoding(image_rgb: np.ndarray, enforce_single_face: bool = True) ->
         raise MultipleFacesError()
 
     # Get face encodings for the face locations
-    encodings = face_recognition.face_encodings(image_rgb, known_face_locations=face_locations)
+    encodings = face_recognition.face_encodings(image_for_detection, known_face_locations=face_locations)
     
     if not encodings:
         raise ImageProcessError("Failed to extract face encodings from the discovered face.")
@@ -34,11 +71,22 @@ def extract_encoding(image_rgb: np.ndarray, enforce_single_face: bool = True) ->
     # This just returns the 128-d numpy array
     return encodings[0]
 
-def extract_face_data(image_rgb: np.ndarray, enforce_single_face: bool = True) -> Tuple[np.ndarray, list, bool]:
+def extract_face_data(
+    image_rgb: np.ndarray,
+    enforce_single_face: bool = True,
+    auto_enhance_low_light: bool = True,
+) -> Tuple[np.ndarray, list, bool]:
     """
     Extracts encoding, bounding box location, and smile heuristic.
     """
-    face_locations = face_recognition.face_locations(image_rgb)
+    face_recognition = _get_face_recognition_module()
+    image_for_detection = _enhance_if_low_light(image_rgb) if auto_enhance_low_light else image_rgb
+    face_locations = face_recognition.face_locations(image_for_detection)
+
+    if not face_locations and auto_enhance_low_light:
+        image_for_detection = image_rgb
+        face_locations = face_recognition.face_locations(image_for_detection)
+
     num_faces = len(face_locations)
     
     if num_faces == 0:
@@ -48,10 +96,13 @@ def extract_face_data(image_rgb: np.ndarray, enforce_single_face: bool = True) -
         raise MultipleFacesError()
 
     location = face_locations[0] # (top, right, bottom, left)
-    encodings = face_recognition.face_encodings(image_rgb, known_face_locations=face_locations)[0]
+    encodings = face_recognition.face_encodings(image_for_detection, known_face_locations=face_locations)
+    if not encodings:
+        raise ImageProcessError("Failed to extract face encodings from the discovered face.")
+    encoding = encodings[0]
     
     # Smile detection using landmarks
-    landmarks = face_recognition.face_landmarks(image_rgb, face_locations)
+    landmarks = face_recognition.face_landmarks(image_for_detection, face_locations)
     is_smiling = False
     
     if landmarks and len(landmarks) > 0:
@@ -70,7 +121,7 @@ def extract_face_data(image_rgb: np.ndarray, enforce_single_face: bool = True) -
             ratio = mouth_width / face_width
             is_smiling = ratio > 0.38
             
-    return encodings, list(location), is_smiling
+    return encoding, list(location), is_smiling
 
 def compare_faces(
     unknown_encoding: np.ndarray, 
@@ -85,9 +136,15 @@ def compare_faces(
     """
     if not known_encodings:
         return -1, 0.0
+
+    known_matrix = np.asarray(known_encodings, dtype=np.float32)
+    query_vector = np.asarray(unknown_encoding, dtype=np.float32)
+    if known_matrix.ndim != 2 or known_matrix.shape[1] != 128 or query_vector.shape != (128,):
+        logger.warning("Unexpected encoding shape while comparing faces")
+        return -1, 0.0
         
-    # Calculate face distances
-    distances = face_recognition.face_distance(known_encodings, unknown_encoding)
+    # Vectorized L2 distances: lower distance means better match.
+    distances = np.linalg.norm(known_matrix - query_vector, axis=1)
     best_match_index = np.argmin(distances)
     min_distance = distances[best_match_index]
     

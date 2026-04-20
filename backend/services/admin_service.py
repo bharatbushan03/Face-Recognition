@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import re
 import platform
+import logging
 
 import cv2
 
@@ -13,6 +14,9 @@ from backend.services.face_encoding_store import (
     KnownFaceStore,
     build_known_face_store,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -100,6 +104,7 @@ def list_students(dataset_dir: str | Path) -> list[StudentInfo]:
 def load_encodings(cache_path: str | Path) -> KnownFaceStore:
     path = Path(cache_path)
     if not path.exists():
+        logger.info("Encoding cache not found at %s. Returning empty store.", path)
         return KnownFaceStore.empty()
 
     try:
@@ -127,6 +132,15 @@ def rebuild_and_save_encodings(
         num_jitters=num_jitters,
     )
     save_encodings(known_store, cache_path)
+    logger.info(
+        "Rebuilt encoding cache at %s | students=%s images=%s encodings=%s skipped_no_face=%s skipped_errors=%s",
+        cache_path,
+        report.students_found,
+        report.images_scanned,
+        report.encodings_created,
+        report.skipped_no_face,
+        report.skipped_errors,
+    )
     return report
 
 
@@ -352,6 +366,7 @@ def add_student(
             skipped,
         )
     except Exception as exc:
+        logger.exception("Failed to add student '%s': %s", name, exc)
         shutil.rmtree(student_folder, ignore_errors=True)
         return AddStudentResult(
             False,
@@ -396,6 +411,7 @@ def remove_student(
     try:
         shutil.rmtree(target_folder)
         report = rebuild_and_save_encodings(dataset_dir=dataset_path, cache_path=cache_path)
+        logger.info("Removed student folder %s", target_folder)
         return RemoveStudentResult(
             True,
             f"Removed student: {removed_student.student_name}",
@@ -403,6 +419,7 @@ def remove_student(
             report,
         )
     except Exception as exc:
+        logger.exception("Failed to remove student '%s': %s", student_ref, exc)
         return RemoveStudentResult(
             False,
             f"Failed to remove student: {exc}",

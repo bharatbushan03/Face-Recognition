@@ -69,5 +69,16 @@ def test_get_users(setup_database):
     assert response.status_code == 200
     assert response.json() == []
 
+
+def test_users_requires_auth_when_admin_credentials_set(setup_database, monkeypatch):
+    monkeypatch.setenv("FR_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FR_ADMIN_PASSWORD", "secret123")
+
+    unauthorized = client.get("/api/face/users")
+    assert unauthorized.status_code == 401
+
+    authorized = client.get("/api/face/users", auth=("admin", "secret123"))
+    assert authorized.status_code == 200
+
 # Notice: We can't easily unit-test the register/recognize endpoints fully without
 # valid base64 face images or mocking. In a real scenario, we'd add base64 fixtures or mock `extract_encoding`.

@@ -1,6 +1,7 @@
 import argparse
 import platform
 import time
+import logging
 
 import cv2
 
@@ -9,6 +10,11 @@ from backend.services.realtime_face_detection import (
     MediaPipeFaceDetector,
     draw_face_detections,
 )
+from backend.utils.logging_config import configure_logging
+
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def _ensure_opencv_gui() -> None:
@@ -24,14 +30,19 @@ def _ensure_opencv_gui() -> None:
         ) from exc
 
 
-def _open_camera(camera_index: int) -> cv2.VideoCapture:
+def _open_camera(camera_index: int, camera_buffer_size: int = 1) -> cv2.VideoCapture:
     """Open webcam with Windows-friendly backend fallback."""
     if platform.system().lower() == "windows":
         cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
         if cap.isOpened():
+            if camera_buffer_size > 0:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_buffer_size)
             return cap
 
-    return cv2.VideoCapture(camera_index)
+    cap = cv2.VideoCapture(camera_index)
+    if cap.isOpened() and camera_buffer_size > 0:
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_buffer_size)
+    return cap
 
 
 def run_realtime_detection(args: argparse.Namespace) -> None:
@@ -44,11 +55,12 @@ def run_realtime_detection(args: argparse.Namespace) -> None:
         smoothing_alpha=args.smoothing_alpha,
         max_tracking_distance=args.max_tracking_distance,
         max_missing_frames=args.max_missing_frames,
+        min_face_size=args.min_face_size,
     )
     detector = MediaPipeFaceDetector(config=config)
-    print(f"Using detection backend: {detector.backend_name}")
+    logger.info("Using detection backend: %s", detector.backend_name)
 
-    cap = _open_camera(args.camera_index)
+    cap = _open_camera(args.camera_index, camera_buffer_size=args.camera_buffer_size)
     if not cap.isOpened():
         raise RuntimeError(
             "Could not access webcam. Check permissions, close other camera apps, or try --camera-index 1"
@@ -57,24 +69,39 @@ def run_realtime_detection(args: argparse.Namespace) -> None:
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.frame_height)
 
-    print("Starting real-time face detection...")
-    print("Press 'q' to quit safely.")
+    logger.info("Starting real-time face detection. Press 'q' to quit safely.")
 
     prev_time = time.perf_counter()
     smoothed_fps = 0.0
+    consecutive_read_failures = 0
+    frame_counter = 0
 
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
-                print("Failed to read webcam frame. Exiting loop.")
-                break
+                consecutive_read_failures += 1
+                logger.warning(
+                    "Failed to read webcam frame (%s/%s)",
+                    consecutive_read_failures,
+                    args.max_read_failures,
+                )
+                if consecutive_read_failures >= args.max_read_failures:
+                    logger.error("Exceeded max camera read failures. Exiting loop.")
+                    break
+                continue
+
+            consecutive_read_failures = 0
+            frame_counter += 1
 
             if args.mirror:
                 frame = cv2.flip(frame, 1)
 
             faces = detector.detect(frame)
             draw_face_detections(frame, faces, show_track_id=True)
+
+            if frame_counter % 150 == 0:
+                logger.info("Runtime stats | Faces=%s FPS=%.1f", len(faces), smoothed_fps)
 
             now = time.perf_counter()
             instant_fps = 1.0 / max(now - prev_time, 1e-6)
@@ -134,6 +161,12 @@ def run_realtime_detection(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run real-time webcam face detection")
     parser.add_argument("--camera-index", type=int, default=0, help="Camera device index")
+    parser.add_argument(
+        "--camera-buffer-size",
+        type=int,
+        default=1,
+        help="OpenCV camera buffer size. Lower values reduce webcam latency.",
+    )
     parser.add_argument("--frame-width", type=int, default=1280, help="Webcam capture width")
     parser.add_argument("--frame-height", type=int, default=720, help="Webcam capture height")
     parser.add_argument(
@@ -172,6 +205,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=5,
         help="How many missed frames before dropping a track",
+    )
+    parser.add_argument(
+        "--min-face-size",
+        type=int,
+        default=28,
+        help="Minimum face size in pixels",
+    )
+    parser.add_argument(
+        "--max-read-failures",
+        type=int,
+        default=30,
+        help="Maximum consecutive camera read failures before stopping",
     )
     parser.add_argument(
         "--mirror",

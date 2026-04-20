@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import platform
 import time
+import logging
 
 import cv2
 
@@ -15,6 +16,11 @@ from backend.services.realtime_face_recognition import (
     RealtimeFaceRecognizer,
     draw_recognition_results,
 )
+from backend.utils.logging_config import configure_logging
+
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def _ensure_opencv_gui() -> None:
@@ -30,12 +36,18 @@ def _ensure_opencv_gui() -> None:
         ) from exc
 
 
-def _open_camera(camera_index: int) -> cv2.VideoCapture:
+def _open_camera(camera_index: int, camera_buffer_size: int = 1) -> cv2.VideoCapture:
     if platform.system().lower() == "windows":
         cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
         if cap.isOpened():
+            if camera_buffer_size > 0:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_buffer_size)
             return cap
-    return cv2.VideoCapture(camera_index)
+
+    cap = cv2.VideoCapture(camera_index)
+    if cap.isOpened() and camera_buffer_size > 0:
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_buffer_size)
+    return cap
 
 
 def _load_or_build_known_faces(
@@ -46,9 +58,22 @@ def _load_or_build_known_faces(
     num_jitters: int,
 ) -> KnownFaceStore:
     if cache_path.exists() and not refresh_cache:
-        known_faces = KnownFaceStore.load_npz(cache_path)
-        print(f"Loaded {known_faces.size} known face encodings from cache: {cache_path}")
-        return known_faces
+        try:
+            known_faces = KnownFaceStore.load_npz(cache_path)
+            logger.info("Loaded %s known face encodings from cache: %s", known_faces.size, cache_path)
+            return known_faces
+        except Exception as exc:
+            logger.warning(
+                "Encoding cache could not be loaded from %s (%s). Rebuilding from dataset.",
+                cache_path,
+                exc,
+            )
+
+    if not dataset_dir.exists():
+        raise FileNotFoundError(
+            f"Dataset directory not found: {dataset_dir}. "
+            "Create it and add student images first."
+        )
 
     known_faces, report = build_known_face_store(
         dataset_dir=dataset_dir,
@@ -57,13 +82,16 @@ def _load_or_build_known_faces(
     )
     known_faces.save_npz(cache_path)
 
-    print("Built known face encodings from dataset")
-    print(
-        f"Students: {report.students_found} | Images scanned: {report.images_scanned} | "
-        f"Encodings: {report.encodings_created} | Skipped(no-face): {report.skipped_no_face} | "
-        f"Skipped(errors): {report.skipped_errors}"
+    logger.info(
+        "Built known face encodings from dataset | Students=%s Images=%s Encodings=%s "
+        "SkippedNoFace=%s SkippedErrors=%s",
+        report.students_found,
+        report.images_scanned,
+        report.encodings_created,
+        report.skipped_no_face,
+        report.skipped_errors,
     )
-    print(f"Saved encoding cache to: {cache_path}")
+    logger.info("Saved encoding cache to: %s", cache_path)
     return known_faces
 
 
@@ -72,12 +100,6 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
 
     dataset_dir = Path(args.dataset_dir)
     cache_path = Path(args.cache_file)
-
-    if not dataset_dir.exists():
-        raise FileNotFoundError(
-            f"Dataset directory not found: {dataset_dir}. "
-            "Create it and add student images first."
-        )
 
     known_faces = _load_or_build_known_faces(
         dataset_dir=dataset_dir,
@@ -107,8 +129,15 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
         config=RecognitionConfig(
             tolerance=args.tolerance,
             ambiguity_margin=args.ambiguity_margin,
+            detect_every_n_frames=args.detect_every_n_frames,
             process_every_n_frames=args.process_every_n_frames,
             encode_model=args.encode_model,
+            max_faces_per_frame=args.max_faces_per_frame,
+            encoding_num_workers=args.encoding_num_workers,
+            enable_low_light_enhancement=not args.disable_low_light_enhancement,
+            low_light_threshold=args.low_light_threshold,
+            min_face_brightness=args.min_face_brightness,
+            min_face_sharpness=args.min_face_sharpness,
         ),
     )
 
@@ -120,7 +149,7 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
         )
     )
 
-    cap = _open_camera(args.camera_index)
+    cap = _open_camera(args.camera_index, camera_buffer_size=args.camera_buffer_size)
     if not cap.isOpened():
         raise RuntimeError(
             "Could not access webcam. Check permissions, close other camera apps, or try --camera-index 1"
@@ -129,25 +158,38 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.frame_height)
 
-    print(f"Using detection backend: {detector.backend_name}")
-    print(f"Known encodings loaded: {known_faces.size}")
-    print(f"Attendance file: {Path(args.attendance_file)}")
-    print(
-        f"Attendance session started: {attendance_manager.session_id} "
-        f"(dedupe_scope={args.dedupe_scope})"
+    logger.info("Using detection backend: %s", detector.backend_name)
+    logger.info("Known encodings loaded: %s", known_faces.size)
+    logger.info("Attendance file: %s", Path(args.attendance_file))
+    logger.info(
+        "Attendance session started: %s (dedupe_scope=%s)",
+        attendance_manager.session_id,
+        args.dedupe_scope,
     )
-    print("Starting real-time face recognition...")
-    print("Press 'q' to quit safely.")
+    logger.info("Starting real-time face recognition. Press 'q' to quit safely.")
 
     prev_time = time.perf_counter()
     smoothed_fps = 0.0
+    frame_counter = 0
+    consecutive_read_failures = 0
 
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
-                print("Failed to read webcam frame. Exiting loop.")
-                break
+                consecutive_read_failures += 1
+                logger.warning(
+                    "Failed to read webcam frame (%s/%s)",
+                    consecutive_read_failures,
+                    args.max_read_failures,
+                )
+                if consecutive_read_failures >= args.max_read_failures:
+                    logger.error("Exceeded max camera read failures. Exiting loop.")
+                    break
+                continue
+
+            consecutive_read_failures = 0
+            frame_counter += 1
 
             if args.mirror:
                 frame = cv2.flip(frame, 1)
@@ -172,7 +214,11 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
                     source="realtime_face_recognition",
                 )
                 if marked and record is not None:
-                    print(f"Attendance marked for {record.student_name} at {record.time}")
+                    logger.info(
+                        "Attendance marked for %s at %s",
+                        record.student_name,
+                        record.time,
+                    )
 
             draw_recognition_results(frame, results)
 
@@ -183,6 +229,15 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
 
             known_count = sum(1 for item in results if item.status == "matched")
             unknown_count = len(results) - known_count
+
+            if frame_counter % 150 == 0:
+                logger.info(
+                    "Runtime stats | FPS=%.1f TotalFaces=%s Known=%s Unknown=%s",
+                    smoothed_fps,
+                    len(results),
+                    known_count,
+                    unknown_count,
+                )
 
             cv2.putText(
                 frame,
@@ -231,9 +286,10 @@ def run_realtime_recognition(args: argparse.Namespace) -> None:
     finally:
         cap.release()
         cv2.destroyAllWindows()
-        print(
-            f"Attendance session ended: {attendance_manager.session_id}. "
-            f"Log file: {Path(args.attendance_file)}"
+        logger.info(
+            "Attendance session ended: %s | Log file: %s",
+            attendance_manager.session_id,
+            Path(args.attendance_file),
         )
 
 
@@ -274,6 +330,12 @@ def parse_args() -> argparse.Namespace:
 
     # Webcam settings
     parser.add_argument("--camera-index", type=int, default=0, help="Camera device index")
+    parser.add_argument(
+        "--camera-buffer-size",
+        type=int,
+        default=1,
+        help="OpenCV camera buffer size. Lower values reduce webcam latency.",
+    )
     parser.add_argument("--frame-width", type=int, default=1280, help="Webcam capture width")
     parser.add_argument("--frame-height", type=int, default=720, help="Webcam capture height")
     parser.add_argument(
@@ -316,10 +378,28 @@ def parse_args() -> argparse.Namespace:
         help="Distance gap for ambiguous top-2 candidates",
     )
     parser.add_argument(
+        "--detect-every-n-frames",
+        type=int,
+        default=2,
+        help="Run face detection every N frames and reuse the last boxes in between for higher FPS",
+    )
+    parser.add_argument(
         "--process-every-n-frames",
         type=int,
         default=2,
         help="Run face encoding every N frames to improve performance",
+    )
+    parser.add_argument(
+        "--max-faces-per-frame",
+        type=int,
+        default=6,
+        help="Upper limit of faces to encode per frame for predictable latency",
+    )
+    parser.add_argument(
+        "--encoding-num-workers",
+        type=int,
+        default=1,
+        help="Worker count for fallback per-face encoding path",
     )
     parser.add_argument(
         "--encode-model",
@@ -327,6 +407,35 @@ def parse_args() -> argparse.Namespace:
         choices=["small", "large"],
         default="small",
         help="face_recognition encoding model for live frames",
+    )
+    parser.add_argument(
+        "--disable-low-light-enhancement",
+        action="store_true",
+        help="Disable adaptive low-light enhancement before encoding",
+    )
+    parser.add_argument(
+        "--low-light-threshold",
+        type=float,
+        default=70.0,
+        help="Mean frame brightness threshold that triggers low-light enhancement",
+    )
+    parser.add_argument(
+        "--min-face-brightness",
+        type=float,
+        default=35.0,
+        help="Minimum face-crop brightness required before attempting recognition",
+    )
+    parser.add_argument(
+        "--min-face-sharpness",
+        type=float,
+        default=12.0,
+        help="Minimum face-crop sharpness (Laplacian variance) for recognition",
+    )
+    parser.add_argument(
+        "--max-read-failures",
+        type=int,
+        default=30,
+        help="Maximum consecutive camera read failures before stopping",
     )
 
     # Attendance settings

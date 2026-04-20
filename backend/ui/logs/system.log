@@ -1,0 +1,19 @@
+2026-04-20 21:29:54,143 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 21:29:58,780 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 21:29:58,784 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 21:33:01,674 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:04:00,648 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:04:10,181 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:04:10,194 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:04:51,726 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:05:00,325 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:05:01,951 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:05:01,956 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 22:08:02,853 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 23:10:08,692 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 23:10:25,135 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 23:10:35,631 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-20 23:10:35,638 | INFO | backend.ui.dashboard_runtime | No known face encodings available yet. Register students via FastAPI and then refresh cache.
+2026-04-21 00:37:06,685 | WARNING | backend.ui.dashboard_runtime | RecognitionConfig does not accept detect_every_n_frames. Falling back to compatible args only.
+2026-04-21 00:37:14,394 | INFO | attendance | attendance_marked student_key=bharat student_id= student_name=Bharat date=2026-04-21 time=00:37:14 session_id=session_20260421_003706 confidence=0.5229 source=streamlit_dashboard
+2026-04-21 00:37:14,396 | INFO | backend.ui.dashboard_runtime | Dashboard attendance marked for Bharat at 00:37:14
